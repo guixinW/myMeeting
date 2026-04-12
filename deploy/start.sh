@@ -25,12 +25,12 @@ sudo ufw --force enable
 
 echo "=> 3. 配置 Golang 运行环境 (若未安装)..."
 if ! command -v go &> /dev/null; then
-  echo "   正在下载并安装 Go 1.22.2..."
-  wget https://go.dev/dl/go1.22.2.linux-amd64.tar.gz -q
-  sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.22.2.linux-amd64.tar.gz
+  echo "   正在下载并安装 Go 1.26.1..."
+  wget https://go.dev/dl/go1.26.1.linux-amd64.tar.gz -q
+  sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.26.1.linux-amd64.tar.gz
   export PATH=$PATH:/usr/local/go/bin
   echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
-  rm go1.22.2.linux-amd64.tar.gz
+  rm go1.26.1.linux-amd64.tar.gz
 fi
 
 echo "=> 4. 配置 Node.js 运行环境 (若未安装)..."
