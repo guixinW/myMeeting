@@ -32,28 +32,19 @@ func setupWebRTC(room *Room, p *Participant) {
 		}
 	})
 
-	pc.OnNegotiationNeeded(func() {
-		offer, err := pc.CreateOffer(nil)
-		if err != nil {
-			return
-		}
-		if err = pc.SetLocalDescription(offer); err != nil {
-			return
-		}
-		notifyParticipant(p, ServerMessage{
-			Type: "offer",
-			SDP:  &offer,
-		})
-	})
+	// NOTE: We intentionally do NOT set OnNegotiationNeeded on the server side.
+	// The client is always the sole Offer initiator to prevent SDP glare.
 
 	// Add existing tracks in the room to this participant (skip this participant's own tracks)
 	room.mu.RLock()
+	needsRenegotiation := false
 	for _, ot := range room.trackLocals {
 		if ot.ownerID == p.id {
 			continue
 		}
 		sender, err := pc.AddTrack(ot.track)
 		if err == nil {
+			needsRenegotiation = true
 			go func() {
 				rtcpBuf := make([]byte, 1500)
 				for {
@@ -65,6 +56,11 @@ func setupWebRTC(room *Room, p *Participant) {
 		}
 	}
 	room.mu.RUnlock()
+
+	// If existing tracks were added, tell the client to create a new offer
+	if needsRenegotiation {
+		notifyParticipant(p, ServerMessage{Type: "renegotiate"})
+	}
 
 	// Broadcast tracks sent by this participant to others in the room
 	pc.OnTrack(func(remoteTrack *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {

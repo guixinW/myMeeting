@@ -90,17 +90,6 @@ export class WebRTCClient {
       const msg = JSON.parse(event.data);
 
       switch (msg.type) {
-        case 'offer': {
-          await this.pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-          const answer = await this.pc.createAnswer();
-          await this.pc.setLocalDescription(answer);
-          this.sendMessage({
-            type: 'answer',
-            sdp: this.pc.localDescription,
-          });
-          break;
-        }
-
         case 'answer':
           if (this.pc.signalingState !== 'stable') {
             await this.pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
@@ -113,9 +102,19 @@ export class WebRTCClient {
           }
           break;
 
+        case 'renegotiate': {
+          // Server added new tracks to our PeerConnection, create a new offer
+          const offer = await this.pc.createOffer();
+          await this.pc.setLocalDescription(offer);
+          this.sendMessage({
+            type: 'offer',
+            sdp: this.pc.localDescription,
+          });
+          break;
+        }
+
         case 'user-left':
           // The component will handle removing the video element.
-          // We could emit an event here to notify UI to remove the stream from state
           break;
       }
     };
