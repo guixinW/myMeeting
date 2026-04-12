@@ -45,7 +45,7 @@ ROOT_DIR=$(cd $(dirname $0)/.. && pwd)
 
 echo "=> 5. 编译 Go 后端服务..."
 cd $ROOT_DIR/backend
-/usr/local/go/bin/go build -o mymeeting-backend main.go
+/usr/local/go/bin/go build -o mymeeting-backend .
 
 echo "=> 6. 安装依赖并编译前端 (React + Vite)..."
 cd $ROOT_DIR/frontend
