@@ -24,7 +24,7 @@ sudo ufw allow 443/tcp # 允许 HTTPS
 sudo ufw --force enable
 
 echo "=> 3. 配置 Golang 运行环境 (若未安装)..."
-if ! command -v go &> /dev/null; then
+if ! command -v go &> /dev/null && [ ! -x /usr/local/go/bin/go ]; then
   echo "   正在下载并安装 Go 1.26.1..."
   wget https://go.dev/dl/go1.26.1.linux-amd64.tar.gz -q
   sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.26.1.linux-amd64.tar.gz
