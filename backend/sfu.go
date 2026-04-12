@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
@@ -45,10 +46,13 @@ func setupWebRTC(room *Room, p *Participant) {
 		})
 	})
 
-	// Add existing tracks in the room to this participant
+	// Add existing tracks in the room to this participant (skip this participant's own tracks)
 	room.mu.RLock()
-	for _, track := range room.trackLocals {
-		sender, err := pc.AddTrack(track)
+	for _, ot := range room.trackLocals {
+		if ot.ownerID == p.id {
+			continue
+		}
+		sender, err := pc.AddTrack(ot.track)
 		if err == nil {
 			go func() {
 				rtcpBuf := make([]byte, 1500)
@@ -66,9 +70,16 @@ func setupWebRTC(room *Room, p *Participant) {
 	pc.OnTrack(func(remoteTrack *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		log.Printf("Received Track from %s: %s, ID: %s, Kind: %s\n", p.id, remoteTrack.Codec().MimeType, remoteTrack.ID(), remoteTrack.Kind())
 
-		// Send a PLI on an interval so that the publisher is forced to generate a new keyframe
+		// Send a PLI periodically so the publisher generates keyframes for new viewers
 		go func() {
-			pc.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: uint32(remoteTrack.SSRC())}})
+			ticker := time.NewTicker(3 * time.Second)
+			defer ticker.Stop()
+			for range ticker.C {
+				if pc.ConnectionState() == webrtc.PeerConnectionStateClosed {
+					return
+				}
+				pc.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: uint32(remoteTrack.SSRC())}})
+			}
 		}()
 
 		// We use StreamID field to pass the user ID, which helps frontend identify the track owner.
@@ -78,7 +89,7 @@ func setupWebRTC(room *Room, p *Participant) {
 			return
 		}
 
-		room.AddTrack(localTrack)
+		room.AddTrack(localTrack, p.id)
 
 		go func() {
 			defer room.RemoveTrack(localTrack)

@@ -27,7 +27,7 @@ func (rm *RoomManager) GetOrCreateRoom(id string) *Room {
 		room = &Room{
 			id:           id,
 			participants: make(map[string]*Participant),
-			trackLocals:  make(map[string]*webrtc.TrackLocalStaticRTP),
+			trackLocals:  make(map[string]*ownedTrack),
 		}
 		rm.rooms[id] = room
 	}
@@ -41,11 +41,16 @@ type Participant struct {
 	peerConnection *webrtc.PeerConnection
 }
 
+type ownedTrack struct {
+	track   *webrtc.TrackLocalStaticRTP
+	ownerID string
+}
+
 type Room struct {
 	id           string
 	mu           sync.RWMutex
 	participants map[string]*Participant
-	trackLocals  map[string]*webrtc.TrackLocalStaticRTP
+	trackLocals  map[string]*ownedTrack
 }
 
 func (r *Room) AddParticipant(p *Participant) {
@@ -68,19 +73,21 @@ func (r *Room) RemoveParticipant(id string) {
 	}
 }
 
-func (r *Room) AddTrack(t *webrtc.TrackLocalStaticRTP) {
+func (r *Room) AddTrack(t *webrtc.TrackLocalStaticRTP, ownerID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.trackLocals[t.ID()] = t
+	r.trackLocals[t.ID()] = &ownedTrack{track: t, ownerID: ownerID}
 
-	// Add this track to all participants
+	// Add this track to all participants EXCEPT the owner
 	for _, p := range r.participants {
+		if p.id == ownerID {
+			continue
+		}
 		if p.peerConnection != nil {
 			sender, err := p.peerConnection.AddTrack(t)
 			if err != nil {
 				log.Println("Error adding track to peer:", err)
 			} else {
-				// Read RTCP packets from the sender
 				go func() {
 					rtcpBuf := make([]byte, 1500)
 					for {
