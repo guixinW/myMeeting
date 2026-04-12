@@ -72,7 +72,8 @@ WantedBy=multi-user.target
 EOF
 
 sudo systemctl daemon-reload
-sudo systemctl enable --now mymeeting
+sudo systemctl enable mymeeting
+sudo systemctl restart mymeeting
 
 echo "=> 8. 配置 Nginx 网页引擎与 WebSocket 代理..."
 # 将前端静态文件拷贝到 Nginx 的标准目录，防止出现 /root 目录权限导致的 500 Internal Server Error
