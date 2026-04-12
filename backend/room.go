@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"strings"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -57,6 +58,7 @@ func (r *Room) AddParticipant(p *Participant) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.participants[p.id] = p
+	r.logRoomStatus("用户加入")
 }
 
 func (r *Room) RemoveParticipant(id string) {
@@ -71,6 +73,7 @@ func (r *Room) RemoveParticipant(id string) {
 		p.mu.Unlock()
 		delete(r.participants, id)
 	}
+	r.logRoomStatus("用户离开")
 }
 
 func (r *Room) AddTrack(t *webrtc.TrackLocalStaticRTP, ownerID string) {
@@ -105,4 +108,14 @@ func (r *Room) RemoveTrack(t *webrtc.TrackLocalStaticRTP) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.trackLocals, t.ID())
+}
+
+// logRoomStatus 打印房间状态日志（调用方须已持有 r.mu 锁）
+func (r *Room) logRoomStatus(event string) {
+	userIDs := make([]string, 0, len(r.participants))
+	for id := range r.participants {
+		userIDs = append(userIDs, id[:8]) // 取 UUID 前 8 位，方便阅读
+	}
+	log.Printf("[%s] 房间: %s | 人数: %d | 用户: [%s]",
+		event, r.id, len(r.participants), strings.Join(userIDs, ", "))
 }
