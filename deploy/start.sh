@@ -75,13 +75,19 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now mymeeting
 
 echo "=> 8. 配置 Nginx 网页引擎与 WebSocket 代理..."
+# 将前端静态文件拷贝到 Nginx 的标准目录，防止出现 /root 目录权限导致的 500 Internal Server Error
+sudo mkdir -p /var/www/mymeeting
+sudo rm -rf /var/www/mymeeting/*
+sudo cp -r $ROOT_DIR/frontend/dist/* /var/www/mymeeting/
+sudo chown -R www-data:www-data /var/www/mymeeting
+
 cat <<EOF | sudo tee /etc/nginx/sites-available/mymeeting
 server {
     listen 80;
     server_name $DOMAIN;
 
     location / {
-        root $ROOT_DIR/frontend/dist;
+        root /var/www/mymeeting;
         index index.html;
         try_files \$uri \$uri/ /index.html;
     }
