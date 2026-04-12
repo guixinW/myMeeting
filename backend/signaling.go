@@ -80,8 +80,10 @@ func handleWebSocket(rm *RoomManager, w http.ResponseWriter, r *http.Request) {
 
 		case "offer":
 			if currentParticipant != nil && currentParticipant.peerConnection != nil {
+				log.Printf("[信令] 收到 offer from %s, signalingState=%s", currentParticipant.id[:8], currentParticipant.peerConnection.SignalingState())
 				if err := currentParticipant.peerConnection.SetRemoteDescription(*msg.SDP); err != nil {
 					log.Println("SetRemoteDescription error (offer):", err)
+					continue
 				}
 				answer, err := currentParticipant.peerConnection.CreateAnswer(nil)
 				if err != nil {
@@ -92,10 +94,13 @@ func handleWebSocket(rm *RoomManager, w http.ResponseWriter, r *http.Request) {
 					log.Println("SetLocalDescription error (answer):", err)
 					continue
 				}
+				log.Printf("[信令] 发送 answer to %s", currentParticipant.id[:8])
 				notifyParticipant(currentParticipant, ServerMessage{
 					Type: "answer",
 					SDP:  &answer,
 				})
+			} else {
+				log.Println("[信令] 收到 offer 但 participant 或 peerConnection 为 nil")
 			}
 
 		case "answer":

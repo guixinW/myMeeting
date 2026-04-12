@@ -91,6 +91,11 @@ server {
         root /var/www/mymeeting;
         index index.html;
         try_files \$uri \$uri/ /index.html;
+
+        # Prevent browser from caching index.html (JS bundles have content hashes)
+        location = /index.html {
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+        }
     }
 
     location /ws {
@@ -99,6 +104,8 @@ server {
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "Upgrade";
         proxy_set_header Host \$host;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
     }
 }
 EOF
