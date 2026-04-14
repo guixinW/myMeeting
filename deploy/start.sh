@@ -86,9 +86,20 @@ server {
     listen 80;
     server_name $DOMAIN;
 
+    root /var/www/mymeeting;
+    index index.html;
+
+    # 1. 针对带 Hash 的静态资源 (JS, CSS, 图片等) 开启长期缓存，提升二次加载性能
+    location ~* \.(?:css|js|jpg|jpeg|gif|png|ico|svg|woff2?)$ {
+        expires 1y;
+        add_header Cache-Control "public";
+    }
+
+    # 2. 针对主页面和一切未匹配上面的路由，强制不缓存，确保用户总能拿到最新带有正确 Hash 依赖的 index.html
     location / {
-        root /var/www/mymeeting;
-        index index.html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+        add_header Expires "0";
         try_files \$uri \$uri/ /index.html;
     }
 
