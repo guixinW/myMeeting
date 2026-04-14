@@ -22,6 +22,7 @@ echo "=> 2. 配置服务器防火墙 (UFW)..."
 sudo ufw allow 22/tcp  # 允许 SSH
 sudo ufw allow 80/tcp  # 允许 HTTP
 sudo ufw allow 443/tcp # 允许 HTTPS
+sudo ufw allow 10000:60000/udp # 允许 WebRTC 媒体流通信 (UDP)
 sudo ufw --force enable
 
 echo "=> 3. 配置 Golang 运行环境 (若未安装)..."
