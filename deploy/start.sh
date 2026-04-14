@@ -7,7 +7,8 @@ if [ -z "$1" ]; then
   exit 1
 fi
 
-DOMAIN=$1
+# Automatically strip http(s):// and trailing paths if user passed a URL
+DOMAIN=$(echo "$1" | sed -e 's|^[^/]*//||' -e 's|/.*$||')
 
 echo "==========================================="
 echo "🚀 开始部署 MyMeeting 服务: $DOMAIN"
