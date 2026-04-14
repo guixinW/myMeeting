@@ -11,7 +11,6 @@ export class WebRTCClient {
   private userId: string;
   public localStream: MediaStream | null = null;
   private onRemoteTrackCallback: (stream: MediaStream, userId: string) => void;
-  private remoteStreams: Map<string, MediaStream> = new Map();
   private _audioEnabled: boolean = true;
   private _videoEnabled: boolean = true;
   
