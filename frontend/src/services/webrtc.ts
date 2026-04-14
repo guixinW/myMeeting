@@ -62,7 +62,9 @@ export class WebRTCClient {
 
     this.pc.onnegotiationneeded = async () => {
       try {
+        if (this.pc.signalingState !== 'stable') return;
         const offer = await this.pc.createOffer();
+        if (this.pc.signalingState !== 'stable') return;
         await this.pc.setLocalDescription(offer);
         this.sendMessage({
           type: 'offer',
@@ -96,22 +98,33 @@ export class WebRTCClient {
           }
           break;
 
+        case 'offer': {
+          try {
+            const offerCollision = this.pc.signalingState !== 'stable';
+            
+            if (offerCollision) {
+              // Polite Peer: Rollback our local offer to accept server's offer
+              await this.pc.setLocalDescription({ type: 'rollback' } as any);
+            }
+
+            await this.pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+            const answer = await this.pc.createAnswer();
+            await this.pc.setLocalDescription(answer);
+            this.sendMessage({
+              type: 'answer',
+              sdp: this.pc.localDescription,
+            });
+          } catch (e) {
+            console.error('Error handling offer:', e);
+          }
+          break;
+        }
+
         case 'candidate':
           if (msg.candidate) {
             await this.pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
           }
           break;
-
-        case 'renegotiate': {
-          // Server added new tracks to our PeerConnection, create a new offer
-          const offer = await this.pc.createOffer();
-          await this.pc.setLocalDescription(offer);
-          this.sendMessage({
-            type: 'offer',
-            sdp: this.pc.localDescription,
-          });
-          break;
-        }
 
         case 'user-left':
           // The component will handle removing the video element.

@@ -81,6 +81,13 @@ func handleWebSocket(rm *RoomManager, w http.ResponseWriter, r *http.Request) {
 		case "offer":
 			if currentParticipant != nil && currentParticipant.peerConnection != nil {
 				log.Printf("[信令] 收到 offer from %s, signalingState=%s", currentParticipant.id[:8], currentParticipant.peerConnection.SignalingState())
+				
+				// Server is Impolite: Ignore incoming offer if not stable
+				if currentParticipant.peerConnection.SignalingState() != webrtc.SignalingStateStable {
+					log.Println("[信令] 发生Glare冲突，Server状态非stable，忽略客户端 Offer")
+					continue
+				}
+				
 				if err := currentParticipant.peerConnection.SetRemoteDescription(*msg.SDP); err != nil {
 					log.Println("SetRemoteDescription error (offer):", err)
 					continue

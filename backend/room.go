@@ -99,8 +99,6 @@ func (r *Room) AddTrack(t *webrtc.TrackLocalStaticRTP, ownerID string) {
 						}
 					}
 				}()
-				// Notify this participant to renegotiate so the new track is included in the SDP
-				notifyParticipant(p, ServerMessage{Type: "renegotiate"})
 			}
 		}
 	}
