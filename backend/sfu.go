@@ -34,6 +34,7 @@ func setupWebRTC(room *Room, p *Participant) {
 
 	// Server initiates offer when a new track is added to its peer connection
 	pc.OnNegotiationNeeded(func() {
+		log.Printf("[SFU] OnNegotiationNeeded fired for %s", p.id[:8])
 		offer, err := pc.CreateOffer(nil)
 		if err != nil {
 			log.Println("CreateOffer error:", err)
@@ -43,31 +44,16 @@ func setupWebRTC(room *Room, p *Participant) {
 			log.Println("SetLocalDescription error:", err)
 			return
 		}
+		log.Printf("[信令] (Server->Client) 发送 offer to %s", p.id[:8])
 		notifyParticipant(p, ServerMessage{
 			Type: "offer",
 			SDP:  &offer,
 		})
 	})
 
-	// Add existing tracks in the room to this participant (skip this participant's own tracks)
-	room.mu.RLock()
-	for _, ot := range room.trackLocals {
-		if ot.ownerID == p.id {
-			continue
-		}
-		sender, err := pc.AddTrack(ot.track)
-		if err == nil {
-			go func() {
-				rtcpBuf := make([]byte, 1500)
-				for {
-					if _, _, err := sender.Read(rtcpBuf); err != nil {
-						return
-					}
-				}
-			}()
-		}
-	}
-	room.mu.RUnlock()
+	// DOWNSTREAM TRACKS DEFERRED:
+	// Existing tracks will be pushed only AFTER the client completes its initial Offer-Answer
+	// to completely prevent SDP Glare and complex rollback collisions!
 
 	// Broadcast tracks sent by this participant to others in the room
 	pc.OnTrack(func(remoteTrack *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {

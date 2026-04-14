@@ -36,10 +36,11 @@ func (rm *RoomManager) GetOrCreateRoom(id string) *Room {
 }
 
 type Participant struct {
-	id             string
-	wsConn         *websocket.Conn
-	mu             sync.Mutex
-	peerConnection *webrtc.PeerConnection
+	id                     string
+	wsConn                 *websocket.Conn
+	mu                     sync.Mutex
+	peerConnection         *webrtc.PeerConnection
+	initialNegotiationDone bool
 }
 
 type ownedTrack struct {
@@ -86,11 +87,23 @@ func (r *Room) AddTrack(t *webrtc.TrackLocalStaticRTP, ownerID string) {
 		if p.id == ownerID {
 			continue
 		}
+		
+		p.mu.Lock()
+		initialized := p.initialNegotiationDone
+		p.mu.Unlock()
+
+		if !initialized {
+			continue // Wait for their initial negotiation to finish
+		}
+
 		if p.peerConnection != nil {
-			sender, err := p.peerConnection.AddTrack(t)
+			tSender, err := p.peerConnection.AddTransceiverFromTrack(t, webrtc.RTPTransceiverInit{
+				Direction: webrtc.RTPTransceiverDirectionSendonly,
+			})
 			if err != nil {
 				log.Println("Error adding track to peer:", err)
 			} else {
+				sender := tSender.Sender()
 				go func() {
 					rtcpBuf := make([]byte, 1500)
 					for {
@@ -118,4 +131,30 @@ func (r *Room) logRoomStatus(event string) {
 	}
 	log.Printf("[%s] 房间: %s | 人数: %d | 用户: [%s]",
 		event, r.id, len(r.participants), strings.Join(userIDs, ", "))
+}
+
+func (r *Room) PushExistingTracksTo(p *Participant) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, ot := range r.trackLocals {
+		if ot.ownerID == p.id {
+			continue
+		}
+		if p.peerConnection != nil {
+			tSender, err := p.peerConnection.AddTransceiverFromTrack(ot.track, webrtc.RTPTransceiverInit{
+				Direction: webrtc.RTPTransceiverDirectionSendonly,
+			})
+			if err == nil {
+				sender := tSender.Sender()
+				go func() {
+					rtcpBuf := make([]byte, 1500)
+					for {
+						if _, _, err := sender.Read(rtcpBuf); err != nil {
+							return
+						}
+					}
+				}()
+			}
+		}
+	}
 }

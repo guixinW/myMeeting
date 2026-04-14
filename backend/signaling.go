@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v4"
@@ -101,19 +102,35 @@ func handleWebSocket(rm *RoomManager, w http.ResponseWriter, r *http.Request) {
 					log.Println("SetLocalDescription error (answer):", err)
 					continue
 				}
-				log.Printf("[信令] 发送 answer to %s", currentParticipant.id[:8])
+				log.Printf("[信令] (Server->Client) 发送 answer to %s", currentParticipant.id[:8])
 				notifyParticipant(currentParticipant, ServerMessage{
 					Type: "answer",
 					SDP:  &answer,
 				})
+
+				// Deferred Downstream: 推送房间旧流给此用户
+				currentParticipant.mu.Lock()
+				if !currentParticipant.initialNegotiationDone {
+					currentParticipant.initialNegotiationDone = true
+					currentParticipant.mu.Unlock()
+					go func(p *Participant) {
+						time.Sleep(300 * time.Millisecond)
+						currentRoom.PushExistingTracksTo(p)
+					}(currentParticipant)
+				} else {
+					currentParticipant.mu.Unlock()
+				}
 			} else {
 				log.Println("[信令] 收到 offer 但 participant 或 peerConnection 为 nil")
 			}
 
 		case "answer":
 			if currentParticipant != nil && currentParticipant.peerConnection != nil {
+				log.Printf("[信令] (Client->Server) 收到 answer from %s", currentParticipant.id[:8])
 				if err := currentParticipant.peerConnection.SetRemoteDescription(*msg.SDP); err != nil {
 					log.Println("SetRemoteDescription error (answer):", err)
+				} else {
+					log.Printf("[信令] (Client->Server) 成功设置 RemoteDescription (answer) for %s", currentParticipant.id[:8])
 				}
 			}
 
